@@ -55,18 +55,18 @@ operators = [
 "uscale"
 ]
 
+tokens = []
+tokens.append((re.compile(r"\s+"), "Whitespace", False))
+tokens.append((re.compile(r"%.*\n"), "Comment", False))
+tokens.append((re.compile("|".join(operators)), "Operator", True))
+tokens.append((re.compile(r"true|false"), "Boolean", True))
+tokens.append((re.compile(r"[a-zA-Z][a-zA-Z0-9-_]*"), "Identifier", True))
+tokens.append((re.compile(r"/[a-zA-Z][a-zA-Z0-9-_]*"), "Binder", True))
+tokens.append((re.compile(r"-{0,1}\d+(?:(?:\.\d+(?:[eE]-{0,1}\d+){0,1})|(?:[eE]-{0,1}\d+))"), "Real", True))
+tokens.append((re.compile(r"-{0,1}\d+"), "Integer", True))
+tokens.append((re.compile(r"\".*\""), "String", True))
 
 def do_tokenize(text, tokenlist):
-    tokens = []
-    tokens.append((re.compile(r"\s+"), "Whitespace", False))
-    tokens.append((re.compile(r"%.*\n"), "Comment", False))
-    tokens.append((re.compile("|".join(operators)), "Operator", True))
-    tokens.append((re.compile(r"true|false"), "Boolean", True))
-    tokens.append((re.compile(r"[a-zA-Z][a-zA-Z0-9-_]*"), "Identifier", True))
-    tokens.append((re.compile(r"/[a-zA-Z][a-zA-Z0-9-_]*"), "Binder", True))
-    tokens.append((re.compile(r"-{0,1}\d+(?:(?:\.\d+(?:[eE]-{0,1}\d+){0,1})|(?:[eE]-{0,1}\d+))"), "Real", True))
-    tokens.append((re.compile(r"-{0,1}\d+"), "Integer", True))
-    tokens.append((re.compile(r"\".*\""), "String", True))
     while text:
         if text[0] == '}':
             return text[1:]
