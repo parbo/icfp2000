@@ -6,8 +6,12 @@ class GMLRuntimeError(Exception):
 class GMLTypeError(Exception):
     pass
 
+class GMLSubscriptError(Exception):
+    pass
+
 def check_type(t, typename):
     if t[0] != typename:
+        print "Wrong type", t[0], ", Expected", typename
         raise GMLTypeError
 
 check_integer = lambda t: check_type(t, 'Integer')
@@ -16,6 +20,7 @@ check_boolean = lambda t: check_type(t, 'Boolean')
 check_closure = lambda t: check_type(t, 'Closure')
 check_identifier = lambda t: check_type(t, 'Identifier')
 check_point = lambda t: check_type(t, 'Point')
+check_array = lambda t: check_type(t, 'Array')
 
 def make_integer(v):
     return ('Integer', v)
@@ -28,6 +33,9 @@ def make_boolean(v):
 
 def make_closure(env, v):
     return ('Closure', (dict(env), v[:]))
+
+def make_array(v):
+    return ('Array', v[:])
 
 def make_point(x, y, z):
     return ('Point', (x,y,z))
@@ -59,11 +67,11 @@ def eval_addi(env, stack, ast):
     return env, stack + [make_integer(i1[1]+i2[1])], ast
 
 def eval_addf(env, stack, ast):
-    f1 = stack.pop()
-    f2 = stack.pop()
-    check_real(f1)
-    check_real(f2)
-    return env, stack + [make_real(i1[1]+i2[1])], ast
+    r1 = stack.pop()
+    r2 = stack.pop()
+    check_real(r1)
+    check_real(r2)
+    return env, stack + [make_real(r1[1]+r2[1])], ast
 
 def eval_acos(env, stack, ast):
     r1 = stack.pop()
@@ -88,7 +96,10 @@ def eval_clampf(env, stack, ast):
 def eval_cos(env, stack, ast):
     r1 = stack.pop()
     check_real(r1)
-    return env, stack + [make_real(math.cos(math.radians(r1[1])))], ast
+    res = math.cos(math.radians(r1[1]))
+    if -1e-7 < res < 1e-7:
+        res = 0.0
+    return env, stack + [make_real(res)], ast
 
 def eval_divi(env, stack, ast):
     i2 = stack.pop()
@@ -98,7 +109,7 @@ def eval_divi(env, stack, ast):
     rv = i1[1] / i2[1]
     if rv < 0:
         rv += 1 # we need to round towards zero
-    return env, stack + [make_integer(i1[1] / i2[1])], ast
+    return env, stack + [make_integer(rv)], ast
 
 def eval_divf(env, stack, ast):
     r2 = stack.pop()
@@ -106,7 +117,7 @@ def eval_divf(env, stack, ast):
     check_real(r1)
     check_real(r2)
     rv = r1[1] / r2[1]
-    return env, stack + [make_real(i1[1] / i2[1])], ast
+    return env, stack + [make_real(r1[1] / r2[1])], ast
 
 def eval_eqi(env, stack, ast):
     i2 = stack.pop()
@@ -124,7 +135,7 @@ def eval_eqf(env, stack, ast):
     check_real(r1)
     check_real(r2)
     rv = False
-    if i1[1] == i2[1]:
+    if r1[1] == r2[1]:
         rv = True        
     return env, stack + [make_boolean(rv)], ast
 
@@ -163,7 +174,7 @@ def eval_modi(env, stack, ast):
     i1 = stack.pop()
     check_integer(i1)
     check_integer(i2)
-    return env, stack + [make_integer(i1 % i2)], ast
+    return env, stack + [make_integer(i1[1] % i2[1])], ast
 
 def eval_muli(env, stack, ast):
     i2 = stack.pop()
@@ -197,7 +208,10 @@ def eval_real(env, stack, ast):
 def eval_sin(env, stack, ast):
     r1 = stack.pop()
     check_real(r1)
-    return env, stack + [make_real(math.sin(math.radians(r1[1])))], ast
+    res = math.sin(math.radians(r1[1]))
+    if -1e-7 < res < 1e-7:
+        res = 0.0
+    return env, stack + [make_real(res)], ast
 
 def eval_sqrt(env, stack, ast):
     r1 = stack.pop()
@@ -225,7 +239,7 @@ def eval_point(env, stack, ast):
     check_real(x)
     check_real(y)
     check_real(z)
-    return env, stack + [make_point(x, y, z)], ast
+    return env, stack + [make_point(x[1], y[1], z[1])], ast
 
 def eval_getx(env, stack, ast):
     p = stack.pop()
@@ -247,6 +261,8 @@ def eval_get(env, stack, ast):
     a = stack.pop()
     check_integer(i)
     check_array(a)
+    if i[1] < 0 or i[1] > len(a[1]):
+        raise GMLSubscriptError    
     return env, stack + [a[1][i[1]]], ast
 
 def eval_length(env, stack, ast):
@@ -274,7 +290,8 @@ def do_evaluate(env, stack, ast):
             c = make_closure(env, v)
             stack = stack + [c]
         elif t == 'Array':
-            stack = stack + v[:]
+            e, s, a = do_evaluate(env, [], v)
+            stack = stack + [make_array(s)]
         elif t == 'Operator':
             env, stack, ast = globals()["eval_"+v](env, stack, ast)
     return env, stack, ast
@@ -302,7 +319,7 @@ def run(gml):
 if __name__=="__main__":
     from preprocess import preprocess
     from tokenizer import tokenize
-    from parser import parse
+    from parser import parse, GMLSyntaxError
     import sys
     
     if len(sys.argv) > 1:
@@ -316,6 +333,10 @@ if __name__=="__main__":
                 print "contains syntax errors"
             except GMLRuntimeError:
                 print "runtime error"
+            except GMLSubscriptError:
+                print "array index out of range"
+            except KeyError:
+                print "contains unimplemented feature"
             print
         sys.exit(0)
 

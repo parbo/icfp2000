@@ -55,6 +55,9 @@ operators = [
 "uscale"
 ]
 
+# Sort descending on length to make matching greedy
+operators.sort(lambda a, b: cmp(len(b), len(a)))
+
 class EvaluationError(Exception):
     pass
 
