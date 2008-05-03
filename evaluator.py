@@ -59,7 +59,11 @@ def get_closure_function(c):
     return c[1][1]
 
 def make_array(v):
-    return ('Array', v[:])
+    tmp = []
+    while v:
+        e, v = pop(v)
+        tmp.insert(0, e)
+    return ('Array', tmp)
 
 def get_array(a):
     check_array(a)
@@ -101,10 +105,10 @@ def make_stack():
     return ()
 
 def push(stack, elem):
-    return stack + (elem,)
+    return (elem, stack)
 
 def pop(stack):
-    return stack[-1], stack[:-1]
+    return stack[0], stack[1]
 
 def make_env():
     return {}
@@ -178,7 +182,7 @@ def eval_divi(env, stack, ast):
 def eval_divf(env, stack, ast):
     r2, stack = pop(stack)
     r1, stack = pop(stack)
-    rv = getreal(r1) / get_real(r2)
+    rv = get_real(r1) / get_real(r2)
     return env, push(stack, make_real(rv)), ast
 
 def eval_eqi(env, stack, ast):
@@ -302,11 +306,11 @@ def eval_length(env, stack, ast):
 
 def eval_sphere(env, stack, ast):
     surface, stack = pop(stack)
-    return env, push(stack, make_sphere(s)), ast
+    return env, push(stack, make_sphere(surface)), ast
 
 def eval_plane(env, stack, ast):
     surface, stack = pop(stack)
-    return env, push(stack, make_plane(s)), ast
+    return env, push(stack, make_plane(surface)), ast
 
 def eval_translate(env, stack, ast):
     rtz, stack = pop(stack)
@@ -320,7 +324,7 @@ def eval_translate(env, stack, ast):
         pass
     else:
         raise GMLRuntimeError
-    return env, stack + [retobj], ast
+    return env, push(stack, obj), ast
 
 def do_evaluate(env, stack, ast):
     while ast:        
