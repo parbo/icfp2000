@@ -1,6 +1,126 @@
 import math
 import evaluator
 
+class Transform(object):
+    def __init__(self):
+        self.m = identity()
+        self.inv_m = identity()
+
+    def _check(self):
+        res = mmmul(self.m, self.inv_m)
+        if mcmp(res, identity()):
+            print "OK"
+        else:
+            print "FAIL", res
+
+    def transform_point(self, p):
+        return transform_point(self.m, p)
+
+    def transform_vector(self, v):
+        return transform_vector(self.m, v)
+
+    def transform_normal(self, v):
+        return transform_vector(transpose(self.inv_m), v)
+    
+    def inv_transform_point(self, p):
+        return transform_point(self.inv_m, p)
+
+    def inv_transform_vector(self, v):
+        return transform_vector(self.inv_m, v)
+
+    def scale(self, sx, sy, sz):
+        sc = ((sx, 0.0, 0.0, 0.0),
+              (0.0, sy, 0.0, 0.0),
+              (0.0, 0.0, sz, 0.0),
+              (0.0, 0.0, 0.0, 1.0))
+        inv_sc = ((1.0/sx, 0.0, 0.0, 0.0),
+                  (0.0, 1.0/sy, 0.0, 0.0),
+                  (0.0, 0.0, 1.0/sz, 0.0),
+                  (0.0, 0.0, 0.0, 1.0))
+        self.m = mmmul(sc, self.m)
+        self.inv_m = mmmul(self.inv_m, inv_sc)
+
+    def isoscale(self, s):
+        return self.scale(s, s, s)
+
+    def translate(self, tx, ty, tz):
+        tr = ((1.0, 0.0, 0.0, tx),
+              (0.0, 1.0, 0.0, ty),
+              (0.0, 0.0, 1.0, tz),
+              (0.0, 0.0, 0.0, 1.0))
+        inv_tr = ((1.0, 0.0, 0.0, -tx),
+                  (0.0, 1.0, 0.0, -ty),
+                  (0.0, 0.0, 1.0, -tz),
+                  (0.0, 0.0, 0.0, 1.0))
+        self.m = mmmul(tr, self.m)
+        self.inv_m = mmmul(self.inv_m, inv_tr)
+
+    def rotatex(self, d):
+        cosd = math.cos(math.radians(d))
+        sind = math.sin(math.radians(d))
+        rx = ((1.0, 0.0, 0.0, 0.0),
+              (0.0, cosd, -sind, 0.0),
+              (0.0, sind, cosd, 0.0),
+              (0.0, 0.0, 0.0, 1.0))
+        inv_rx = ((1.0, 0.0, 0.0, 0.0),
+                  (0.0, cosd, sind, 0.0),
+                  (0.0, -sind, cosd, 0.0),
+                  (0.0, 0.0, 0.0, 1.0))
+        self.m = mmmul(rx, self.m)
+        self.inv_m = mmmul(self.inv_m, inv_rx)
+
+    def rotatey(self, d):
+        cosd = math.cos(math.radians(d))
+        sind = math.sin(math.radians(d))
+        ry = ((cosd, 0.0, sind, 0.0),
+              (0.0, 1.0, 0.0, 0.0),
+              (-sind, 0.0, cosd, 0.0),
+              (0.0, 0.0, 0.0, 1.0))
+        inv_ry = ((cosd, 0.0, -sind, 0.0),
+                  (0.0, 1.0, 0.0, 0.0),
+                  (sind, 0.0, cosd, 0.0),
+                  (0.0, 0.0, 0.0, 1.0))
+        self.m = mmmul(ry, self.m)
+        self.inv_m = mmmul(self.inv_m, inv_ry)
+    
+    def rotatez(self, d):
+        cosd = math.cos(math.radians(d))
+        sind = math.sin(math.radians(d))
+        rz = ((cosd, -sind, 0.0, 0.0),
+              (sind, cosd, 0.0, 0.0),
+              (0.0, 0.0, 1.0, 0.0),
+              (0.0, 0.0, 0.0, 1.0))
+        inv_rz = ((cosd, sind, 0.0, 0.0),
+                  (-sind, cosd, 0.0, 0.0),
+                  (0.0, 0.0, 1.0, 0.0),
+                  (0.0, 0.0, 0.0, 1.0))
+        self.m = mmmul(rz, self.m)
+        self.inv_m = mmmul(self.inv_m, inv_rz)
+
+def mcmp(m1, m2, eps=1e-10):
+    for r in range(4):
+        for c in range(4):
+            if abs(m1[r][c] - m2[r][c]) > eps:
+                return False
+    return True
+
+def identity():
+    return ((1.0, 0.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0, 0.0),
+            (0.0, 0.0, 1.0, 0.0),
+            (0.0, 0.0, 0.0, 1.0))
+
+def transpose(m):
+    m1, m2, m3, m4 = m
+    m11, m12, m13, m14 = m1
+    m21, m22, m23, m24 = m2
+    m31, m32, m33, m34 = m3
+    m41, m42, m43, m44 = m4
+    return ((m11, m21, m31, m41),
+            (m12, m22, m32, m42),
+            (m13, m23, m33, m43),
+            (m14, m24, m34, m44))
+    
 def normalize(v):
     m = math.sqrt(dot(v, v))
     x, y, z = v
@@ -103,10 +223,7 @@ def get_light_pos(light):
     return light[1]
 
 def get_transform(obj):
-    return ((1.0, 0.0, 0.0, 0.0),
-            (0.0, 1.0, 0.0, 0.0),
-            (0.0, 0.0, 1.0, 0.0),
-            (0.0, 0.0, 0.0, 1.0))
+    return obj[1]
 
 def get_intensity(c, ia, kd, pos, sn, lights, ks, raypos, n):
     ambient = mul(cmul(ia, c), kd)
@@ -137,6 +254,7 @@ def intersect_ray_sphere(raypos, raydir):
     if msq > 1.0:
         return ()    
     q = math.sqrt(1.0 - msq)
+    #print s, lsq, s * s
     t1 = s + q
     t2 = s - q
     if lsq > 1.0:
@@ -155,15 +273,18 @@ def write_ppm(pixels, w, h, filename):
 
 def trace(amb, lights, obj, depth, raypos, raydir):
     t = get_transform(obj)
-    o_raydir = transform_vector(t, raydir)
-    o_raypos = transform_point(t, raypos)
+    o_raydir = normalize(t.inv_transform_vector(raydir))
+    o_raypos = t.inv_transform_point(raypos)
+    #print raypos, raydir
+    #print o_raypos, o_raydir
     i = []
     if evaluator.get_type(obj) == 'Sphere':                
         i.append(intersect_ray_sphere(o_raypos, o_raydir))
     i.sort()
     if len(i[0]) > 0:
-        pos = i[0][0][1] # todo: inverse transform
-        sn = pos
+        p = i[0][0][1]
+        pos = t.transform_point(p)
+        sn = normalize(t.transform_normal(p))
         c = get_intensity((0.2, 0.3, 1.0), amb, 0.4, pos, sn, lights, 0.05, raypos, 6)
         return c # + recursive trace
     else:
@@ -171,7 +292,7 @@ def trace(amb, lights, obj, depth, raypos, raydir):
 
 def render(amb, lights, obj, depth, fov, w, h, filename):
     pixels = []
-    raypos = (0.0, 0.0, -1000.1)
+    raypos = (0.0, 0.0, -1.0)
     w_world = 2.0 * math.tan(0.5 * math.radians(fov))    
     h_world = h * w_world / w
     print w_world, h_world
@@ -187,19 +308,51 @@ def render(amb, lights, obj, depth, fov, w, h, filename):
 
 
 if __name__=="__main__":
-    pixels = []
-    for y in range(256):
-        for x in range(256):
-            pixels.append((x/255.0, y/255.0, (x+y)/(2.0*255.0)))
-    write_ppm(pixels, 256, 256, "test.ppm")
-    render((0.1, 0.1, 0.1),
-           [((1.0, 1.0, 1.0), (1.0, 2.0, -1.0)),
-            ((1.0, 0.1, 0.1), (-1.0, -1.0, -1.0)),
-            ((0.1, 1.0, 0.1), (1.0, -1.0, -1.0))
-            ],
-           ('Sphere', (0)),
-           3,
-           120,
-           640,
-           480,
-           "render.ppm")
+    import sys
+    test = int(sys.argv[1])
+    if test == 1:
+        pixels = []
+        for y in range(256):
+            for x in range(256):
+                pixels.append((x/255.0, y/255.0, (x+y)/(2.0*255.0)))
+        write_ppm(pixels, 256, 256, "test.ppm")
+    elif test == 2:
+        num = 1
+        if len(sys.argv) > 2:
+            num = int(sys.argv[2])
+        for i in range(num):
+            t = Transform()
+            t.scale(2, 0.8, 0.8)
+            t.rotatex(10)
+            t.rotatey(i)
+            t.rotatez(i*2)
+            t.translate(0.0, 0.0, 5.0)
+            t._check()
+            render((0.1, 0.1, 0.1),
+                   [((1.0, 1.0, 1.0), (15.0, 15.0, -15.0)),
+                    ((1.0, 0.1, 0.1), (-5.0, -5.0, -5.0)),
+                    ((0.1, 1.0, 0.1), (5.0, -5.0, -5.0))
+                    ],
+                   ('Sphere', t),
+                   3,
+                   50,
+                   128,
+                   128,
+                   "render_%04d.ppm"%i)
+    elif test == 3:
+        t = Transform()
+        t._check()
+        t.scale(2,3,4)
+        print t.transform_vector((1,1,1))
+        print t.inv_transform_vector((1,1,1))
+        t._check()
+        t.isoscale(math.pi)
+        t._check()
+        t.translate(7,11,13)
+        t._check()
+        t.rotatex(23)
+        t._check()
+        t.rotatey(12)
+        t._check()
+        t.rotatez(63)
+        t._check()
