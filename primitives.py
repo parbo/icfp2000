@@ -5,9 +5,10 @@ from vecmat import normalize, dot, neg, add, mul, length
 class Intersection(object):
     ENTRY = 0
     EXIT = 1
-    def __init__(self, distance, pos, normal, primitive, t):
+    def __init__(self, distance, wpos, opos, normal, primitive, t):
         self.distance = distance
-        self.pos = pos
+        self.wpos = wpos
+        self.opos = opos
         self.normal = normal
         self.primitive = primitive
         self.t = t
@@ -16,7 +17,12 @@ class Intersection(object):
         return cmp(self.distance, rhs.distance)
 
     def __str__(self):
-        return "%s %s %s %s %s"%(self.distance, self.pos, self.normal, self.primitive, self.t)
+        return "%s %s %s %s %s %s"%(self.distance, self.wpos, self.opos, self.normal, self.primitive, self.t)
+
+    def switch(self, t):
+        if self.t != t:
+            self.t = t
+            self.normal = neg(self.normal)            
 
 class Node(object):
     def intersect(raypos, raydir):
@@ -49,70 +55,49 @@ class Operator(Node):
 
     def rotatez(self, d):
         self.obj1.rotatez(d)
-        self.obj2.rotatez(d)        
+        self.obj2.rotatez(d)
 
-class Union(Operator):
-    def intersect(self, raypos, raydir):
-        intersections = sorted(self.obj1.intersect(raypos, raydir) + self.obj2.intersect(raypos, raydir))
-        res = []
-        inside = 0
-        for i in intersections:
-            if i.t == Intersection.ENTRY:
-                inside += 1
-                if inside == 1:
-                    res.append(i)
-            elif i.t == Intersection.EXIT:
-                inside -= 1
-                if inside == 0:
-                    res.append(i)
-        return res
-
-class Intersect(Operator):
-    def intersect(self, raypos, raydir):
-        intersections = sorted(self.obj1.intersect(raypos, raydir) + self.obj2.intersect(raypos, raydir))
-        res = []
-        inside = 0
-        for i in intersections:
-            if i.t == Intersection.ENTRY:
-                inside += 1
-                if inside == 2:
-                    res.append(i)
-            elif i.t == Intersection.EXIT:
-                inside -= 1
-                if inside == 1:
-                    res.append(i)
-        return res
-
-class Difference(Operator):
     def intersect(self, raypos, raydir):
         intersections = sorted([(i, self.obj1) for i in self.obj1.intersect(raypos, raydir)] +
                                [(i, self.obj2) for i in self.obj2.intersect(raypos, raydir)])
         res = []
-        inside = 0
-        curprim = None
+        inside1 = 0
+        inside2 = 0
+        inside = False
         for i, obj in intersections:
             if i.t == Intersection.ENTRY:
                 if obj == self.obj1:
-                    inside += 1
-                    if inside == 1:
-                        curprim = i.primitive
-                        res.append(i)                        
+                    inside1 += 1
                 else:
-                    inside -= 1
-                    if inside == 0:
-                        res.append(Intersection(i.distance, i.pos, neg(i.normal), curprim, Intersection.EXIT))
-                        curprim = None
+                    inside2 += 1
             elif i.t == Intersection.EXIT:
                 if obj == self.obj1:
-                    inside -= 1
-                    if inside == 0:
-                        res.append(i)
-                        curprim = None
+                    inside1 -= 1
                 else:
-                    inside += 1
-                    if inside == 1:
-                        res.append(Intersection(i.distance, i.pos, neg(i.normal), curprim, Intersection.ENTRY))
+                    inside2 -= 1
+                    
+            newinside = self.rule(inside1 > 0, inside2 > 0)
+            if inside and not newinside:
+                i.switch(Intersection.EXIT)
+                res.append(i)
+            if not inside and newinside:
+                i.switch(Intersection.ENTRY)
+                res.append(i)
+            inside = newinside
+                
         return res
+
+class Union(Operator):
+    def rule(self, a, b):
+        return a or b
+
+class Intersect(Operator):
+    def rule(self, a, b):
+        return a and b
+    
+class Difference(Operator):
+    def rule(self, a, b):
+        return a and not b        
 
 class Primitive(Node):
     def __init__(self, surface):
@@ -136,6 +121,10 @@ class Primitive(Node):
 
     def rotatez(self, d):
         self.transform.rotatez(d)
+
+    def get_surface(self, opos):
+        def yellow(face, u, v):
+            return (0.1, 1.0, 1.0), 0.4, 0.05, 4        
 
 class Sphere(Primitive):
     def intersect(self, raypos, raydir):
@@ -162,8 +151,14 @@ class Sphere(Primitive):
         p2 = add(raypos, mul(raydir, t2))
         n1 = normalize(self.transform.transform_normal(p1))
         n2 = normalize(self.transform.transform_normal(p2))
-        return [Intersection(scale * t1, t.transform_point(p1), n1, self, Intersection.ENTRY),
-                Intersection(scale * t2, t.transform_point(p2), n2, self, Intersection.EXIT)]
+        return [Intersection(scale * t1, t.transform_point(p1), p1, n1, self, Intersection.ENTRY),
+                Intersection(scale * t2, t.transform_point(p2), p2, n2, self, Intersection.EXIT)]
+
+    def get_surface(self, opos):
+        x, y, z = opos
+        v = (y + 1.0) / 2.0
+        u = math.asin(x / math.sqrt(1 - y * y)) / (2.0 * math.pi)
+        return self.surface(0, u, v)
 
 class Cube(Primitive):
     pass
