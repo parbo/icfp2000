@@ -2,9 +2,8 @@ import math
 from transform import Transform
 from vecmat import normalize, dot, neg, add, mul
 
-class Primitive(object):
-    def __init__(self, surface):
-        self.surface = surface
+class Node(object):
+    def __init__(self):
         self.transform = Transform()
 
     def translate(self, tx, ty, tz):
@@ -25,14 +24,26 @@ class Primitive(object):
     def rotatez(self, d):
         self.transform.rotatez(d)
 
-class Union(Primitive):
+    def intersect(raypos, raydir):
+        return None
+
+class Operator(Node):
+    def __init__(self, obj1, obj2):
+        self.obj1 = obj1
+        self.obj2 = obj2
+
+class Union(Node):
     pass
 
-class Intersection(Primitive):
+class Intersect(Node):
     pass
 
-class Difference(Primitive):
+class Difference(Node):
     pass
+
+class Primitive(Node):
+    def __init__(self, surface):
+        self.surface = surface
 
 class Sphere(Primitive):
     def intersect(self, raypos, raydir):
