@@ -3,7 +3,7 @@ from vecmat import normalize, add, sub, cmul, neg, mul, dot, length, cross
 from transform import Transform
 from ppmwriter import write_ppm
 import evaluator
-from primitives import Sphere
+from primitives import Sphere, Union, Intersect, Difference
 
 def get_surface(obj):
     if evaluator.get_type(obj) == 'Sphere':
@@ -14,9 +14,6 @@ def get_light_intensity(light):
 
 def get_light_pos(light):
     return light[1]
-
-def get_transform(obj):
-    return obj[1]
 
 def get_ambient(c, ia, kd):
     return mul(cmul(ia, c), kd)
@@ -43,13 +40,13 @@ def get_diffuse_specular(light, pos, raypos, sc, sn, n):
 def trace(amb, lights, scene, depth, raypos, raydir):
     i = scene.intersect(raypos, raydir)
     if i:
-        obj = i[0]
-        p = i[1][0][1]
-        pos = obj.transform.transform_point(p)
-        sn = normalize(obj.transform.transform_normal(p))
+        isect = i[0]
+        obj = isect.primitive
+        pos = isect.pos
+        sn = isect.normal
         # TODO: call surface function
-        kd = 0.4
-        ks = 0.1
+        kd = 0.3
+        ks = 0.05
         n = 4
         sc = (0.2, 0.3, 1.0)
         c = get_ambient(sc, amb, kd)
@@ -63,7 +60,7 @@ def trace(amb, lights, scene, depth, raypos, raydir):
                 specular = add(specular, s)
         c = add(c, add(mul(diffuse, kd), mul(specular, ks)))
         return c
-        #return add(c, trace(amb, lights, obj, depth - 1, refl_raypos, refl_raydir))
+        #return add(c, trace(amb, lights, scene, depth - 1, refl_raypos, refl_raydir))
     else:
         return (0.0, 0.0, 0.0)
 
@@ -89,20 +86,34 @@ if __name__=="__main__":
     if len(sys.argv) > 1:
         num = int(sys.argv[1])
     for i in range(num):
-        obj = Sphere(None)
-        obj.scale(2, 0.8, 0.8)
-        obj.rotatex(10)
-        obj.rotatey(i)
-        obj.rotatez(i*2)
-        obj.translate(0.0, 0.0, 5.0)
-        render((0.1, 0.1, 0.1),
-               [((1.0, 1.0, 1.0), (15.0, 15.0, -15.0)),
-                ((1.0, 0.1, 0.1), (-5.0, -5.0, -5.0)),
-                ((0.1, 1.0, 0.1), (5.0, -5.0, -5.0))
-                ],
+        obj1 = Sphere(None)
+        obj1.translate(0.5, 0.0, 0.0)
+        obj2 = Sphere(None)
+        obj2.translate(-0.5, 0.0, 0.0)
+        obj3 = Union(obj1, obj2)
+        obj3.translate(-1.2, -1.0, 5.0)
+        obj4 = Sphere(None)
+        obj4.translate(0.5, 0.0, 0.0)
+        obj5 = Sphere(None)
+        obj5.translate(-0.5, 0.0, 0.0)
+        obj6 = Intersect(obj4, obj5)
+        obj6.translate(1.2, -1.0, 5.0)
+        obj7 = Union(obj3, obj6)
+        obj8 = Sphere(None)
+        obj8.translate(0.5, 0.0, 0.0)
+        obj9 = Sphere(None)
+        obj9.translate(-0.5, 0.0, 0.0)
+        obj10 = Difference(obj8, obj9)
+        obj10.rotatey(-25)
+        obj10.translate(0.0, 1.0, 5.0)
+        obj = Union(obj7, obj10)
+        render((0.2, 0.2, 0.2),
+               [((0.5, 0.5, 0.5), (0.0, 0.0, -5.0)),
+                ((1.0, 0.2, 0.2), (-5.0, 5.0, -5.0)),
+                ((0.2, 1.0, 0.2), (5.0, 5.0, -5.0))],
                obj,
                3,
                50,
-               640,
-               480,
+               512,
+               512,
                "render_%04d.ppm"%i)
