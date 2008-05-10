@@ -1,4 +1,5 @@
 import math
+import primitives
 
 class GMLRuntimeError(Exception):
     pass
@@ -87,19 +88,6 @@ def get_point_y(p):
 def get_point_z(p):
     check_point(p)
     return p[1][2]
-
-def make_sphere(s):
-    return ('Sphere', (s,                        # surface
-                       make_real(1.0),           # radius
-                       make_point(0.0,0.0,0.0))) # origin
-
-def make_plane(s):
-    return ('Plane', (s,                         # surface
-                      make_point(0.0,0.0,0.0),   # point in plane
-                      make_point(0.0,1.0,0.0)))  # normal
-
-def make_union(o1, o2):
-    return ('Union', (o1, o2))
 
 def make_stack():
     return ()
@@ -306,24 +294,77 @@ def eval_length(env, stack, ast):
 
 def eval_sphere(env, stack, ast):
     surface, stack = pop(stack)
-    return env, push(stack, make_sphere(surface)), ast
+    return env, push(stack, primitives.Sphere(surface)), ast
+
+def eval_cube(env, stack, ast):
+    surface, stack = pop(stack)
+    return env, push(stack, primitives.Cube(surface)), ast
+
+def eval_cylinder(env, stack, ast):
+    surface, stack = pop(stack)
+    return env, push(stack, primitives.Cylinder(surface)), ast
+
+def eval_cone(env, stack, ast):
+    surface, stack = pop(stack)
+    return env, push(stack, primitives.Cone(surface)), ast
 
 def eval_plane(env, stack, ast):
     surface, stack = pop(stack)
-    return env, push(stack, make_plane(surface)), ast
+    return env, push(stack, primitives.Plane(surface)), ast
+
+def eval_union(env, stack, ast):
+    obj1, stack = pop(stack)
+    obj2, stack = pop(stack)
+    return env, push(stack, primitives.Union(obj1, obj2))
+
+def eval_intersect(env, stack, ast):
+    obj1, stack = pop(stack)
+    obj2, stack = pop(stack)
+    return env, push(stack, primitives.Intersect(obj1, obj2))
+
+def eval_difference(env, stack, ast):
+    obj1, stack = pop(stack)
+    obj2, stack = pop(stack)
+    return env, push(stack, primitives.Difference(obj1, obj2))
 
 def eval_translate(env, stack, ast):
-    rtz, stack = pop(stack)
-    rty, stack = pop(stack)
-    rtx, stack = pop(stack)
+    tz, stack = pop(stack)
+    ty, stack = pop(stack)
+    tx, stack = pop(stack)
     obj, stack = pop(stack)
-    t = get_type(obj)
-    if t == 'Sphere':
-        pass
-    elif t == 'Plane':
-        pass
-    else:
-        raise GMLRuntimeError
+    obj.translate(tx, ty, tz)
+    return env, push(stack, obj), ast
+
+def eval_scale(env, stack, ast):
+    sz, stack = pop(stack)
+    sy, stack = pop(stack)
+    sx, stack = pop(stack)
+    obj, stack = pop(stack)
+    obj.scale(sx, sy, sz)
+    return env, push(stack, obj), ast
+
+def eval_uscale(env, stack, ast):
+    s, stack = pop(stack)
+    obj, stack = pop(stack)
+    obj.uscale(s)
+    return env, push(stack, obj), ast
+
+def eval_rotatex(env, stack, ast):
+    d, stack = pop(stack)
+    obj, stack = pop(stack)
+    obj.rotatex(d)
+    return env, push(stack, obj), ast
+
+def eval_rotatey(env, stack, ast):
+    d, stack = pop(stack)
+    obj, stack = pop(stack)
+    obj.rotatey(d)
+    return env, push(stack, obj), ast
+
+def eval_rotatez(env, stack, ast):
+    d, stack = pop(stack)
+    obj, stack = pop(stack)
+    obj.rotatez(d)
     return env, push(stack, obj), ast
 
 def do_evaluate(env, stack, ast):
