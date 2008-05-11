@@ -33,6 +33,7 @@ class SpotLight(object):
         self.d = normalize(sub(self.at, self.pos))
         self.color = c
         self.cutoff = cutoff
+        self.coscutoff = math.cos(math.radians(self.cutoff))
         self.exp = exp
     
     def get_direction(self, pos):
@@ -42,10 +43,11 @@ class SpotLight(object):
     def get_intensity(self, pos):
         d = sub(self.pos, pos)
         dsq = dot(d, d)
-        angle = math.degrees(math.acos(-dot(d, self.d) / math.sqrt(dsq)))
-        if angle > self.cutoff:
+        invlend = 1 / math.sqrt(dsq)
+        cosangle = -dot(d, self.d) * invlend
+        if cosangle < self.coscutoff:
             return (0.0, 0.0, 0.0)
-        i = pow(dot(normalize(sub(self.at, self.pos)), normalize(sub(pos, self.pos))), self.exp)
+        i = pow(dot(self.d, mul(d, -invlend)), self.exp)
         return mul(self.color, i * 100.0 / (99.0 + dsq))
 
 
