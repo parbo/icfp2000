@@ -24,7 +24,7 @@ p  0.0 -3.0 0.0 translate	  % plane at Y = -3
 union union /scene		  % compose
 
 				% directional light
-1.0 -1.0 1.0 point		  % direction
+1.0 -1.0 0.0 point		  % direction
 1.0  1.0 1.0 point light /l	  % directional light
 
 				% render

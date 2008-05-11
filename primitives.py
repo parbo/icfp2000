@@ -25,7 +25,7 @@ class Intersection(object):
             self.normal = neg(self.normal)            
 
 class Node(object):
-    def intersect(raypos, raydir):
+    def intersect(self, raypos, raydir):
         return []
 
 class Operator(Node):
@@ -128,13 +128,11 @@ class Primitive(Node):
 
 class Sphere(Primitive):
     def intersect(self, raypos, raydir):
-        # According to Akenine-Moller
-        # Transform to object space
-        t = self.transform
-        raydir = t.inv_transform_vector(raydir)
+        tr = self.transform
+        raydir = tr.inv_transform_vector(raydir)
         scale = 1.0 / length(raydir)
         raydir = mul(raydir, scale) # normalize
-        raypos = t.inv_transform_point(raypos)
+        raypos = tr.inv_transform_point(raypos)
         s = dot(neg(raypos), raydir)
         lsq = dot(raypos, raypos)
         if s < 0.0 and lsq > 1.0:
@@ -149,10 +147,10 @@ class Sphere(Primitive):
             t1, t2 = t2, t1
         p1 = add(raypos, mul(raydir, t1))
         p2 = add(raypos, mul(raydir, t2))
-        n1 = normalize(self.transform.transform_normal(p1))
-        n2 = normalize(self.transform.transform_normal(p2))
-        return [Intersection(scale * t1, t.transform_point(p1), p1, n1, self, Intersection.ENTRY),
-                Intersection(scale * t2, t.transform_point(p2), p2, n2, self, Intersection.EXIT)]
+        n1 = normalize(tr.transform_normal(p1))
+        n2 = normalize(tr.transform_normal(p2))
+        return [Intersection(scale * t1, tr.transform_point(p1), p1, n1, self, Intersection.ENTRY),
+                Intersection(scale * t2, tr.transform_point(p2), p2, n2, self, Intersection.EXIT)]
 
     def get_surface(self, opos):
         x, y, z = opos
@@ -170,4 +168,24 @@ class Cone(Primitive):
     pass
 
 class Plane(Primitive):
-    pass
+    def intersect(self, raypos, raydir):
+        tr = self.transform
+        raydir = tr.inv_transform_vector(raydir)
+        scale = 1.0 / length(raydir)
+        raydir = mul(raydir, scale) # normalize
+        raypos = tr.inv_transform_point(raypos)
+        np = (0.0, -1.0, 0.0) # unit plane
+        denom = dot(np, raydir)
+        if denom < 1e-7:
+            return []
+        t = -dot(np, raypos) / denom
+        p = add(raypos, mul(raydir, t))
+        n = normalize(tr.transform_normal(np))
+        tp = tr.transform_point(p)
+        ts = scale * t
+        return [Intersection(ts, tp, p, neg(n), self, Intersection.ENTRY),
+                Intersection(ts, tp, p, n, self, Intersection.EXIT)]
+        
+    def get_surface(self, opos):
+        x, y, z = opos
+        return self.surface(0, x, z)

@@ -3,7 +3,7 @@ from vecmat import normalize, add, sub, cmul, neg, mul, dot, length, cross
 from transform import Transform
 from ppmwriter import write_ppm
 import evaluator
-from primitives import Sphere, Union, Intersect, Difference
+from primitives import Sphere, Plane, Union, Intersect, Difference
 from lights import Light, PointLight, SpotLight
 
 def get_surface(obj):
@@ -33,8 +33,6 @@ def get_specular(ic, lightdir, sn, pos, raypos, n):
     return (0.0, 0.0, 0.0)
 
 def trace(amb, lights, scene, depth, raypos, raydir):
-    if depth == 0:
-        return (0.0, 0.0, 0.0)
     i = scene.intersect(raypos, raydir)
     if i:
         isect = i[0]
@@ -46,8 +44,9 @@ def trace(amb, lights, scene, depth, raypos, raydir):
         normal = isect.normal
         for light in lights:
             lightdir, lightdistance = light.get_direction(pos)
-            i = scene.intersect(pos, lightdir)
-            if not i or lightdistance < i[0].distance:
+            poseps = add(pos, mul(lightdir, 1e-7))
+            i = scene.intersect(poseps, lightdir)
+            if not i or (lightdistance and lightdistance < i[0].distance):
                 ic = cmul(sc, light.get_intensity(pos))
                 if kd > 0.0:
                     diffuse = add(diffuse, get_diffuse(ic, lightdir, normal))
@@ -55,14 +54,16 @@ def trace(amb, lights, scene, depth, raypos, raydir):
                     specular = add(specular, get_specular(ic, lightdir, normal, pos, raypos, n))
         c = add(c, add(mul(diffuse, kd), mul(specular, ks)))        
         refl_raydir = normalize(sub(raydir, mul(normal, 2 * dot(raydir, normal))))
-        if ks > 0.0:
-            return add(c, mul(cmul(trace(amb, lights, scene, depth - 1, pos, refl_raydir), sc), ks))
+        if ks > 0.0 and depth > 0:
+            rc = trace(amb, lights, scene, depth - 1, pos, refl_raydir)
+            return add(c, mul(cmul(rc, sc), ks))
         else:
             return c
     else:
         return (0.0, 0.0, 0.0)
 
 def render(amb, lights, obj, depth, fov, w, h, filename):
+    print "Rendering", filename
     pixels = []
     raypos = (0.0, 0.0, -1.0)
     w_world = 2.0 * math.tan(0.5 * math.radians(fov))    
@@ -73,7 +74,9 @@ def render(amb, lights, obj, depth, fov, w, h, filename):
     for y in range(h):
         for x in range(w):
             raydir = normalize((c_x + (x + 0.5) * pw, c_y - (y + 0.5) * pw, -raypos[2]))
-            pixels.append(trace(amb, lights, obj, depth, raypos, raydir))            
+            p = trace(amb, lights, obj, depth, raypos, raydir)
+            pixels.append(p)
+    print "Writing", filename
     write_ppm(pixels, w, h, filename)
 
 if __name__=="__main__":
@@ -141,12 +144,14 @@ if __name__=="__main__":
                SpotLight((2.0, 5.0, -1.0), (1.5, 0.0, 14.0), (1.0, 0.1, 1.0), 8, 8)
                ]
 
+    p = Plane(blue)
+    p.translate(0.0, -0.5, 0.0)
 
     render((0.1, 0.1, 0.1),
            lights2,
-           scene2,
+           p,
            5,
            50,
-           512,
-           512,
+           256,
+           256,
            "render.ppm")
