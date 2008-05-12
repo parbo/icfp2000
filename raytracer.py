@@ -3,30 +3,14 @@ from vecmat import normalize, add, sub, cmul, neg, mul, dot, length, cross
 from transform import Transform
 from ppmwriter import write_ppm
 import evaluator
-from primitives import Sphere, Plane, Union, Intersect, Difference
+from primitives import Sphere, Plane, Cube, Union, Intersect, Difference
 from lights import Light, PointLight, SpotLight
-
-def get_surface(obj):
-    if evaluator.get_type(obj) == 'Sphere':
-        return (0.0, 1.0, 1.0), 1.0, 0.0, 1
-
-def get_light_intensity(light):
-    return light[0]
-
-def get_light_pos(light):
-    return light[1]
 
 def get_ambient(c, ia, kd):
     return mul(cmul(ia, c), kd)
 
-def get_diffuse(ic, lightdir, sn):
-    df = dot(sn, lightdir)
-    if df > 0.0:
-        return mul(ic, df)
-    return (0.0, 0.0, 0.0)
-
 def get_specular(ic, lightdir, sn, pos, raypos, n):
-    halfway = normalize(add(normalize(lightdir), normalize(sub(raypos, pos))))
+    halfway = normalize(add(lightdir, normalize(sub(raypos, pos))))
     sp = dot(sn, halfway)
     if sp > 0.0:
         return mul(ic, pow(sp, n))
@@ -36,26 +20,30 @@ def trace(amb, lights, scene, depth, raypos, raydir):
     i = scene.intersect(raypos, raydir)
     if i:
         isect = i[0]
-        sc, kd, ks, n = isect.primitive.get_surface(isect.opos)
+        sc, kd, ks, n = isect.primitive.get_surface(isect)
         c = get_ambient(sc, amb, kd)
         diffuse = (0.0, 0.0, 0.0)
         specular = (0.0, 0.0, 0.0)
         pos = isect.wpos
         normal = isect.normal
         for light in lights:
-            lightdir, lightdistance = light.get_direction(pos)
-            poseps = add(pos, mul(lightdir, 1e-7))
-            i = scene.intersect(poseps, lightdir)
-            if not i or (lightdistance and lightdistance < i[0].distance):
-                ic = cmul(sc, light.get_intensity(pos))
-                if kd > 0.0:
-                    diffuse = add(diffuse, get_diffuse(ic, lightdir, normal))
-                if ks > 0.0:
-                    specular = add(specular, get_specular(ic, lightdir, normal, pos, raypos, n))
+            lightvec, lightdistance = light.get_direction(pos)
+            lightdir = normalize(lightvec)
+            df = dot(normal, lightvec)
+            if df > 0.0:
+                poseps = add(pos, mul(lightdir, 1e-15))
+                i = scene.intersect(poseps, lightdir)
+                if not i or (lightdistance and (lightdistance < i[0].distance)):
+                    ic = cmul(sc, light.get_intensity(pos))
+                    if kd > 0.0:
+                        diffuse = add(diffuse, mul(ic, df))
+                    if ks > 0.0:
+                        specular = add(specular, get_specular(ic, lightdir, normal, pos, raypos, n))
         c = add(c, add(mul(diffuse, kd), mul(specular, ks)))        
         refl_raydir = normalize(sub(raydir, mul(normal, 2 * dot(raydir, normal))))
+        poseps = add(pos, mul(refl_raydir, 1e-15))
         if ks > 0.0 and depth > 0:
-            rc = trace(amb, lights, scene, depth - 1, pos, refl_raydir)
+            rc = trace(amb, lights, scene, depth - 1, poseps, refl_raydir)
             return add(c, mul(cmul(rc, sc), ks))
         else:
             return c
@@ -85,11 +73,16 @@ if __name__=="__main__":
         try:
             import psyco
             psyco.full()
+            print "Using psyco"
         except ImportError:
+            print "psyco not installed"
             pass
 
     def blue(face, u, v):
         return (0.1, 0.1, 1.0), 0.3, 0.2, 6
+    
+    def amb(face, u, v):
+        return (1.0, 1.0, 1.0), 1.0, 0.0, 0
     
     def mirror(face, u, v):
         return (1.0, 1.0, 1.0), 0.1, 1.0, 128
@@ -99,6 +92,20 @@ if __name__=="__main__":
     
     def green(face, u, v):
         return (0.1, 1.0, 0.1), 0.3, 0.2, 6
+
+    def cface(face, u, v):
+        if face == 0:
+            return (1.0, 0.0, 0.0), 0.3, 0.2, 6
+        elif face == 1:
+            return (0.0, 1.0, 0.0), 0.3, 0.2, 6
+        elif face == 2:
+            return (0.0, 0.0, 1.0), 0.3, 0.2, 6
+        elif face == 3:
+            return (1.0, 1.0, 0.0), 0.3, 0.2, 6
+        elif face == 4:
+            return (1.0, 0.0, 1.0), 0.3, 0.2, 6
+        elif face == 5:
+            return (0.0, 1.0, 1.0), 0.3, 0.2, 6
 
     def wavy(face, u, v):
         return (0.1, v * math.cos(math.pi * 10 * u), math.sin(math.pi * 10 * v)), 0.3, 0.05, 4
@@ -138,19 +145,34 @@ if __name__=="__main__":
     scene2 = Union(a, b)
     scene2.rotatey(20)
     scene2.translate(0.0, 0.0, 10.0)
-    lights2 = [Light((0.0, 0.0, 1.0), (1.0, 1.0, 1.0)),
-               PointLight((-1.0, 0.0, -1.0), (1.0, 1.0, 1.0)),
-               PointLight((0.0, 5.0, 10.0), (1.0, 1.0, 1.0)),
-               SpotLight((2.0, 5.0, -1.0), (1.5, 0.0, 14.0), (1.0, 0.1, 1.0), 8, 8)
+    lights2 = [Light((0.0, -1.0, 0.0), (1.0, 1.0, 1.0)),
+               PointLight((0.0, 0.0, -1.0), (1.0, 1.0, 1.0))
                ]
 
-    p = Plane(blue)
-    p.translate(0.0, -0.5, 0.0)
+    p = Plane(red)
+    p.translate(0.0, -2.0, 0.0)
+#    p.rotatez(-30)
 
-    render((0.1, 0.1, 0.1),
+    c = Cube(cface)
+    c.translate(-0.5, -0.5, -0.5)
+    c.uscale(2.0)
+    c.rotatex(60)
+    c.rotatey(-30)
+    c.rotatez(45)
+    c.translate(0.0, 0.0, 10.0)
+    d = Sphere(red)
+    d.translate(-1.2, -1.3, 10.0)
+
+    f = Union(c, d)
+    s = Union(p, f)
+
+    l = [Light((1.0, -1.0, 1.0), (1.0, 1.0, 1.0))]
+    l2 = [PointLight((-3.0, -1.0, -5.0), (1.0, 1.0, 1.0))]
+
+    render((0.0, 0.0, 0.0),
            lights2,
-           p,
-           5,
+           s,
+           1,
            50,
            256,
            256,

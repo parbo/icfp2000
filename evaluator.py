@@ -32,6 +32,7 @@ check_array = lambda t: check_type(t, 'Array')
 check_string = lambda t: check_type(t, 'String')
 
 def make_integer(v):
+    assert type(v) == int
     return ('Integer', v)
 
 def get_integer(i):
@@ -39,6 +40,7 @@ def get_integer(i):
     return get_value(i)
 
 def make_string(v):
+    assert type(v) == str
     return ('String', v)
 
 def get_string(s):
@@ -46,6 +48,7 @@ def get_string(s):
     return get_value(s)
 
 def make_real(v):
+    assert type(v) == float
     return ('Real', v)
 
 def get_real(r):
@@ -53,6 +56,7 @@ def get_real(r):
     return get_value(r)
 
 def make_boolean(v):
+    assert type(v) == bool
     return ('Boolean', v)
 
 def get_boolean(b):
@@ -209,7 +213,7 @@ def eval_eqf(env, stack):
 
 def eval_floor(env, stack):
     r, stack = pop(stack)
-    return env, push(stack, make_integer(math.floor(get_real(r))))
+    return env, push(stack, make_integer(int(math.floor(get_real(r)))))
 
 def eval_frac(env, stack):
     r, stack = pop(stack)
@@ -303,8 +307,12 @@ def eval_get(env, stack):
     iv = get_integer(i)
     av = get_array(a)
     if iv < 0 or iv > len(av):
-        raise GMLSubscriptError    
-    return env, push(stack, av[iv])
+        raise GMLSubscriptError
+    try:
+        return env, push(stack, av[iv])
+    except:
+        print iv
+        raise
 
 def eval_length(env, stack):
     a, stack = pop(stack)
