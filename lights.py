@@ -3,11 +3,11 @@ from vecmat import sub, dot, neg, normalize, mul, length
 
 class Light(object):
     def __init__(self, d, c):
-        self.direction = d
+        self.direction = normalize(neg(d))
         self.color = c
 
     def get_direction(self, pos):
-        return neg(self.direction), None
+        return self.direction, None
 
     def get_intensity(self, pos):
         return self.color
@@ -19,7 +19,8 @@ class PointLight(object):
         
     def get_direction(self, pos):
         d = sub(self.pos, pos)
-        return d, length(d)
+        dl = length(d)
+        return mul(d, 1.0 / dl), length(d)
 
     def get_intensity(self, pos):
         d = sub(self.pos, pos)
@@ -38,13 +39,14 @@ class SpotLight(object):
     
     def get_direction(self, pos):
         d = sub(self.pos, pos)
-        return d, length(d)
+        dl = length(d)
+        return mul(d, 1.0 / dl), length(d)
 
     def get_intensity(self, pos):
-        d = sub(self.pos, pos)
-        dsq = dot(d, d)
+        q = sub(self.pos, pos)
+        dsq = dot(q, q)
         invlend = 1 / math.sqrt(dsq)
-        cosangle = -dot(d, self.d) * invlend
+        cosangle = -dot(q, self.d) * invlend
         if cosangle < self.coscutoff:
             return (0.0, 0.0, 0.0)
         i = pow(dot(self.d, mul(d, -invlend)), self.exp)

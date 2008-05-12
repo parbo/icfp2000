@@ -31,6 +31,15 @@ check_point = lambda t: check_type(t, 'Point')
 check_array = lambda t: check_type(t, 'Array')
 check_string = lambda t: check_type(t, 'String')
 
+def divi(a, b):
+    rv = a // b
+    if rv < 0:
+        rv += 1 # we need to round towards zero, which python doesn't
+    return rv
+
+def modi(a, b):
+    return a - b * divi(a, b)
+
 def make_integer(v):
     assert type(v) == int
     return ('Integer', v)
@@ -148,13 +157,13 @@ def eval_apply(env, stack):
     return env, s
 
 def eval_addi(env, stack):
-    i1, stack = pop(stack)
     i2, stack = pop(stack)
+    i1, stack = pop(stack)
     return env, push(stack, make_integer(get_integer(i1)+get_integer(i2)))
 
 def eval_addf(env, stack):
-    r1, stack = pop(stack)
     r2, stack = pop(stack)
+    r1, stack = pop(stack)
     return env, push(stack, make_real(get_real(r1)+get_real(r2)))
 
 def eval_acos(env, stack):
@@ -177,17 +186,14 @@ def eval_clampf(env, stack):
 def eval_cos(env, stack):
     r, stack = pop(stack)
     res = math.cos(math.radians(get_real(r)))
-    if -1e-7 < res < 1e-7:
+    if abs(res) < 1e-15:
         res = 0.0
     return env, push(stack, make_real(res))
 
 def eval_divi(env, stack):
     i2, stack = pop(stack)
     i1, stack = pop(stack)
-    rv = get_integer(i1) / get_integer(i2)
-    if rv < 0:
-        rv += 1 # we need to round towards zero, which python doesn't
-    return env, push(stack, make_integer(rv))
+    return env, push(stack, make_integer(divi(get_integer(i1), get_integer(i2))))
 
 def eval_divf(env, stack):
     r2, stack = pop(stack)
@@ -238,7 +244,7 @@ def eval_lessf(env, stack):
 def eval_modi(env, stack):
     i2, stack = pop(stack)
     i1, stack = pop(stack)
-    return env, push(stack, make_integer(get_integer(i1) % get_integer(i2)))
+    return env, push(stack, make_integer(modi(get_integer(i1), get_integer(i2))))
 
 def eval_muli(env, stack):
     i2, stack = pop(stack)
@@ -265,7 +271,7 @@ def eval_real(env, stack):
 def eval_sin(env, stack):
     r, stack = pop(stack)
     res = math.sin(math.radians(get_real(r)))
-    if -1e-7 < res < 1e-7:
+    if abs(res) < 1e-15:
         res = 0.0
     return env, push(stack, make_real(res))
 
@@ -339,18 +345,18 @@ def eval_plane(env, stack):
     return env, push(stack, primitives.Plane(get_surface(surface)))
 
 def eval_union(env, stack):
-    obj1, stack = pop(stack)
     obj2, stack = pop(stack)
+    obj1, stack = pop(stack)
     return env, push(stack, primitives.Union(obj1, obj2))
 
 def eval_intersect(env, stack):
-    obj1, stack = pop(stack)
     obj2, stack = pop(stack)
+    obj1, stack = pop(stack)
     return env, push(stack, primitives.Intersect(obj1, obj2))
 
 def eval_difference(env, stack):
-    obj1, stack = pop(stack)
     obj2, stack = pop(stack)
+    obj1, stack = pop(stack)
     return env, push(stack, primitives.Difference(obj1, obj2))
 
 def eval_translate(env, stack):

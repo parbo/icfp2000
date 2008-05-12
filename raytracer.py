@@ -3,7 +3,7 @@ from vecmat import normalize, add, sub, cmul, neg, mul, dot, length, cross
 from transform import Transform
 from ppmwriter import write_ppm
 import evaluator
-from primitives import Sphere, Plane, Cube, Union, Intersect, Difference
+from primitives import Sphere, Plane, Cube, Cylinder, Union, Intersect, Difference
 from lights import Light, PointLight, SpotLight
 
 def get_ambient(c, ia, kd):
@@ -27,11 +27,10 @@ def trace(amb, lights, scene, depth, raypos, raydir):
         pos = isect.wpos
         normal = isect.normal
         for light in lights:
-            lightvec, lightdistance = light.get_direction(pos)
-            lightdir = normalize(lightvec)
-            df = dot(normal, lightvec)
+            lightdir, lightdistance = light.get_direction(pos)
+            df = dot(normal, lightdir)
             if df > 0.0:
-                poseps = add(pos, mul(lightdir, 1e-15))
+                poseps = add(pos, mul(lightdir, 1e-7))
                 i = scene.intersect(poseps, lightdir)
                 if not i or (lightdistance and (lightdistance < i[0].distance)):
                     ic = cmul(sc, light.get_intensity(pos))
@@ -39,10 +38,10 @@ def trace(amb, lights, scene, depth, raypos, raydir):
                         diffuse = add(diffuse, mul(ic, df))
                     if ks > 0.0:
                         specular = add(specular, get_specular(ic, lightdir, normal, pos, raypos, n))
-        c = add(c, add(mul(diffuse, kd), mul(specular, ks)))        
-        refl_raydir = normalize(sub(raydir, mul(normal, 2 * dot(raydir, normal))))
-        poseps = add(pos, mul(refl_raydir, 1e-15))
+        c = add(c, add(mul(diffuse, kd), mul(specular, ks)))
         if ks > 0.0 and depth > 0:
+            refl_raydir = normalize(sub(raydir, mul(normal, 2 * dot(raydir, normal))))
+            poseps = add(pos, mul(refl_raydir, 1e-7))
             rc = trace(amb, lights, scene, depth - 1, poseps, refl_raydir)
             return add(c, mul(cmul(rc, sc), ks))
         else:
@@ -87,7 +86,7 @@ if __name__=="__main__":
     def mirror(face, u, v):
         return (1.0, 1.0, 1.0), 0.1, 1.0, 128
     
-    def red(face, u, v):
+    def redfcn(face, u, v):
         return (1.0, 0.1, 0.1), 0.3, 0.2, 6
     
     def green(face, u, v):
@@ -123,7 +122,7 @@ if __name__=="__main__":
     obj6 = Intersect(obj4, obj5)
     obj6.translate(1.2, -1.0, 5.0)
     obj7 = Union(obj3, obj6)
-    obj8 = Sphere(red)
+    obj8 = Sphere(redfcn)
     obj8.translate(0.5, 0.0, 0.0)
     obj9 = Sphere(blue)
     obj9.translate(-0.5, 0.0, 0.0)
@@ -140,7 +139,7 @@ if __name__=="__main__":
     a = Sphere(mirror)
     a.uscale(4.0)        
     a.translate(0.5, 0.0, 3.0)        
-    b = Sphere(red)
+    b = Sphere(redfcn)
     b.translate(-1.2, 1.0, -3.0)
     scene2 = Union(a, b)
     scene2.rotatey(20)
@@ -149,7 +148,7 @@ if __name__=="__main__":
                PointLight((0.0, 0.0, -1.0), (1.0, 1.0, 1.0))
                ]
 
-    p = Plane(red)
+    p = Plane(redfcn)
     p.translate(0.0, -2.0, 0.0)
 #    p.rotatez(-30)
 
@@ -160,7 +159,7 @@ if __name__=="__main__":
     c.rotatey(-30)
     c.rotatez(45)
     c.translate(0.0, 0.0, 10.0)
-    d = Sphere(red)
+    d = Sphere(redfcn)
     d.translate(-1.2, -1.3, 10.0)
 
     f = Union(c, d)
@@ -169,11 +168,66 @@ if __name__=="__main__":
     l = [Light((1.0, -1.0, 1.0), (1.0, 1.0, 1.0))]
     l2 = [PointLight((-3.0, -1.0, -5.0), (1.0, 1.0, 1.0))]
 
-    render((0.0, 0.0, 0.0),
-           lights2,
-           s,
-           1,
-           50,
+    black = (0.0,  0.0,  0.0)
+    white = (1.0,  1.0,  1.0)
+    red = (1.0,  0.0,  0.0)
+    green = (0.0,  1.0,  0.0)
+    blue = (0.0,  0.0,  1.0)
+    magenta = (1.0,  0.0,  1.0)
+    yellow = (1.0,  1.0,  0.0)
+    cyan = (0.0,  1.0,  1.0)
+
+    texture = ((blue,  white, blue),
+               (white, blue,  white),
+               (blue,  white, blue))
+
+    def cubefcn(face, u, v):
+        #print face, u, v
+        def toIntCoord(f):
+            i = int(math.floor(f * 3.0))
+            if i == 3:
+                return 2
+            else:
+                return i
+        color = texture[toIntCoord(u)][toIntCoord(v)]
+        kd = 0.3
+        ks = 0.4
+        n = 8.0
+        return color, kd, ks, n
+
+    ss = Sphere(redfcn)
+    ss.uscale(1.1)
+    
+    cc = Cube(cubefcn)
+    cc.translate(-0.5, -0.5, -0.5) 
+    cc.uscale(1.5)
+    cc.rotatex(-25.0)
+    cc.rotatey(25.0)
+    cc.rotatez(180)
+
+    sc = Intersect(ss, cc)
+    sc.translate(0.0, 0.0, 3.0)
+
+    c1 = Sphere(redfcn)
+#    c1.translate(0.0, -0.5, 0.0)
+    c2 = Cylinder(redfcn)
+    c2.translate(0.0, -0.5, 0.0)
+    c2.scale(0.5, 2.0, 0.5)
+    cyl = Difference(c1, c2)
+    cyl.scale(2.0, 2.0, 2.0)
+    cyl.rotatex(80.0)
+#    cyl.rotatey(20)
+    cyl.translate(0.0, 0.0, 5.0)
+
+    c3 = Sphere(redfcn)
+    c3.translate(-2.0, 2.0, 3)
+    sc5 = Union(cyl, c3)
+
+    render((1.0, 1.0, 1.0),
+           l,
+           sc5,
+           0,
+           90,
            256,
            256,
            "render.ppm")

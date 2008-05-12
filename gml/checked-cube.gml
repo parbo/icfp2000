@@ -33,6 +33,7 @@
 -0.5 -0.5 -0.5 translate	% center cube
 1.5 uscale			% make it bigger
 -25.0 rotatex 25.0 rotatey	% rotate
+90.0 rotatey
 0.0 0.0 3.0 translate		% move to final position
 
 /scene

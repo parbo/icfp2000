@@ -76,7 +76,6 @@ tokens.append((re.compile(r"\{"), "BeginFunction", True, None))
 tokens.append((re.compile(r"\}"), "EndFunction", True, None))
 tokens.append((re.compile(r"\["), "BeginArray", True, None))
 tokens.append((re.compile(r"\]"), "EndArray", True, None))
-tokens.append((re.compile("|".join(operators)), "Operator", True, str))
 tokens.append((re.compile(r"true|false"), "Boolean", True, eval_boolean))
 tokens.append((re.compile(r"[a-zA-Z][a-zA-Z0-9-_]*"), "Identifier", True, str))
 tokens.append((re.compile(r"/[a-zA-Z][a-zA-Z0-9-_]*"), "Binder", True, lambda s: s[1:]))
@@ -91,6 +90,12 @@ def do_tokenize(text, tokenlist):
             if m:
                 text = text[m.end():]
                 if emit:
+                    if tokenname == "Identifier":
+                        if m.group() in operators:
+                            tokenname = "Operator"
+                    elif tokenname == "Binder":
+                        if m.group() in operators:
+                            raise EvaluationError, m.group() + " is a reserved word, cannot bind"
                     tokenlist.append((tokenname, evaluator and evaluator(m.group())))
                 break
         else:
