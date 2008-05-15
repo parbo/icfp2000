@@ -6,14 +6,18 @@ import copy
 class Intersection(object):
     ENTRY = 0
     EXIT = 1
-    def __init__(self, distance, wpos, opos, normal, primitive, t, face):
-        self.distance = distance
-        self.wpos = wpos
-        self.opos = opos
-        self.normal = normal
+    def __init__(self, scale, odistance, rp, rd, primitive, t, face):
+        self.scale = scale
+        self.odistance = odistance
+        self.distance = scale * odistance
+        self.rp = rp
+        self.rd = rd
         self.primitive = primitive
         self.t = t
         self.face = face
+        self._wpos = None
+        self._opos = None
+        self._normal = None
 
     def __cmp__(self, rhs):
         return cmp(self.distance, rhs.distance)
@@ -24,7 +28,33 @@ class Intersection(object):
     def switch(self, t):
         if self.t != t:
             self.t = t
-            self.normal = neg(self.normal)            
+            self._normal = neg(self.normal)
+
+    def opos():
+        def fget(self):
+            if not self._opos:
+                self._opos = add(self.rp, mul(self.rd, self.odistance))
+            return self._opos
+        return locals()
+    opos = property(**opos())
+
+    def wpos():
+        def fget(self):
+            opos = self.opos
+            if not self._wpos:
+                self._wpos = self.primitive.transform.transform_point(opos)
+            return self._wpos
+        return locals()
+    wpos = property(**wpos())
+
+    def normal():
+        def fget(self):
+            if not self._normal:
+                self._normal = self.primitive.get_normal(self)
+            return self._normal
+        return locals()
+    normal = property(**normal())
+
 
 class Node(object):
     def intersect(self, raypos, raydir):
@@ -156,13 +186,9 @@ class Sphere(Primitive):
             t1, t2 = t2, t1
         ts = []
         if t1 > 0.0:
-            p1 = add(raypos, mul(raydir, t1))
-            n1 = normalize(tr.transform_normal(p1))
-            ts.append(Intersection(scale * t1, tr.transform_point(p1), p1, n1, self, Intersection.ENTRY, 0))
+            ts.append(Intersection(scale, t1, raypos, raydir, self, Intersection.ENTRY, 0))
         if t2 > 0.0:
-            p2 = add(raypos, mul(raydir, t2))
-            n2 = normalize(tr.transform_normal(p2))
-            ts.append(Intersection(scale * t2, tr.transform_point(p2), p2, n2, self, Intersection.EXIT, 0))
+            ts.append(Intersection(scale, t2, raypos, raydir, self, Intersection.EXIT, 0))
         return ts
 
     def get_surface(self, i):
@@ -171,11 +197,20 @@ class Sphere(Primitive):
         u = math.asin(x / math.sqrt(1 - y * y)) / (2.0 * math.pi)
         return self.surface(i.face, u, v)
 
+    def get_normal(self, i):
+        return normalize(self.transform.transform_normal(i.opos))
+
 class Cube(Primitive):
-    slabs = [(((1.0, 0.0, 0.0), 3), (((-1.0, 0.0, 0.0), 2))),
-             (((0.0, 1.0, 0.0), 4), (((0.0, -1.0, 0.0), 5))),
-             (((0.0, 0.0, 1.0), 1), (((0.0, 0.0, -1.0), 0)))
-             ]
+    normals = [(0.0, 0.0, -1.0),
+               (0.0, 0.0, 1.0),
+               (-1.0, 0.0, 0.0),
+               (1.0, 0.0, 0.0),
+               (0.0, 1.0, 0.0),
+               (0.0, -1.0, 0.0)]
+    slabs = [(3, 2),
+             (4, 5),
+             (1, 0)]
+    
     def intersect(self, raypos, raydir):
         tr = self.transform
         raydir = tr.inv_transform_vector(raydir)
@@ -208,15 +243,9 @@ class Cube(Primitive):
                 return []
         ts = []
         if tmin[0] > 0.0:
-            nmin = normalize(tr.transform_normal(tmin[1][0]))
-            pmin = add(raypos, mul(raydir, tmin[0]))
-            tpmin = tr.transform_point(pmin)
-            ts.append(Intersection(scale * tmin[0], tpmin, pmin, nmin, self, Intersection.ENTRY, tmin[1][1]))
+            ts.append(Intersection(scale, tmin[0], raypos, raydir, self, Intersection.ENTRY, tmin[1]))
         if tmax[0] > 0.0:
-            nmax = normalize(tr.transform_normal(tmax[1][0]))
-            pmax = add(raypos, mul(raydir, tmax[0]))
-            tpmax = tr.transform_point(pmax)
-            ts.append(Intersection(scale * tmax[0], tpmax, pmax, nmax, self, Intersection.EXIT, tmax[1][1]))
+            ts.append(Intersection(scale, tmax[0], raypos, raydir, self, Intersection.EXIT, tmax[1]))
         return ts
         
     def get_surface(self, i):
@@ -238,20 +267,25 @@ class Cube(Primitive):
             print opos
             assert False
             
+    def get_normal(self, i):
+        return normalize(self.transform.transform_normal(self.normals[i.face]))
 
 class Cylinder(Primitive):
     def _solveCyl(self, px, pz, dx, dz):
-        fa0 = px * px + pz * pz - 1.0
-        fa1 = px * dx + pz * dz
-        fa2 = dx * dx + dz * dz
-        fdiscr = fa1 * fa1 - fa0 * fa2
-        if fdiscr < 0.0:
+        # solve x ^ 2 + z ^ 2 = 1
+        # (px + t * dx) ^ 2 + (pz + t * dz) ^ 2 = 1
+        # a * t ^ 2 + b * t + c = 0
+        # t = (-b +/- sqrt(b ^ 2 - 4 * a * c)) / 2 * a
+        a = dx * dx + dz * dz
+        b = 2 * (px * dx + pz * dz)
+        c = px * px + pz * pz - 1.0
+        sq = b * b - 4 * a * c
+        if sq < 0.0:
             return None
         else:
-            froot = math.sqrt(fdiscr)
-            finv = 1.0 / fa2
-            t1 = ((-fa1 - froot) * finv, 0)
-            t2 = ((-fa1 + froot) * finv, 0)
+            root = math.sqrt(sq)
+            t1 = ((-b - root) / (2.0 * a), 0)
+            t2 = ((-b + root) / (2.0 * a), 0)
             if t1 > t2:
                 t1, t2 = t2, t1
             return t1, t2
@@ -268,14 +302,6 @@ class Cylinder(Primitive):
             tt1, tt2 = tt2, tt1
         return tt1, tt2
 
-    def normal(self, face, pos):
-        if face == 0:
-            return (pos[0], 0.0, pos[2])
-        elif face == 1:
-            return (0.0, 1.0, 0.0)
-        elif face == 2:
-            return (0.0, -1.0, 0.0)
-    
     def intersect(self, raypos, raydir):
         tr = self.transform
         raydir = tr.inv_transform_vector(raydir)
@@ -331,15 +357,9 @@ class Cylinder(Primitive):
         tmin, tmax = ts
         ts = []
         if tmin[0] > 0.0:
-            pmin = add(raypos, mul(raydir, tmin[0]))
-            nmin = normalize(tr.transform_normal(self.normal(tmin[1], pmin)))
-            tpmin = tr.transform_point(pmin)
-            ts.append(Intersection(scale * tmin[0], tpmin, pmin, nmin, self, Intersection.ENTRY, tmin[1]))
+            ts.append(Intersection(scale, tmin[0], raypos, raydir, self, Intersection.ENTRY, tmin[1]))
         if tmax[0] > 0.0:
-            pmax = add(raypos, mul(raydir, tmax[0]))
-            nmax = normalize(tr.transform_normal(self.normal(tmax[1], pmax)))
-            tpmax = tr.transform_point(pmax)
-            ts.append(Intersection(scale * tmax[0], tpmax, pmax, nmax, self, Intersection.EXIT, tmax[1]))
+            ts.append(Intersection(scale, tmax[0], raypos, raydir, self, Intersection.EXIT, tmax[1]))
         return ts
 
     def get_surface(self, i):
@@ -355,8 +375,95 @@ class Cylinder(Primitive):
             print face
             raise
 
+    def get_normal(self, i):
+        if i.face == 0:
+            n = (i.opos[0], 0.0, i.opos[2])
+        elif i.face == 1:
+            n = (0.0, 1.0, 0.0)
+        elif i.face == 2:
+            n =(0.0, -1.0, 0.0)
+        return normalize(self.transform.transform_normal(n))
+    
+
 class Cone(Primitive):
-    pass
+    def _solveCone(self, px, py, pz, dx, dy, dz):
+        # solve x ^ 2 + z ^ 2 = y ^ 2
+        # (px + t * dx) ^ 2 + (pz + t * dz) ^ 2 = (py + t * dy) ^ 2
+        # a * t ^ 2 + b * t + c = 0
+        # t = (-b +/- sqrt(b ^ 2 - 4 * a * c)) / 2 * a
+        a = dx * dx + dz * dz - dy * dy
+        b = 2 * (px * dx + pz * dz - py * dy)
+        c = px * px + pz * pz - py * py
+        sq = b * b - 4 * a * c
+        if sq < 0.0:
+            return None
+        else:
+            root = math.sqrt(sq)
+            t1 = ((-b - root) / (2.0 * a), 0)
+            t2 = ((-b + root) / (2.0 * a), 0)
+            if t1 > t2:
+                t1, t2 = t2, t1
+            return t1, t2
+
+    def intersect(self, raypos, raydir):
+        tr = self.transform
+        raydir = tr.inv_transform_vector(raydir)
+        scale = 1.0 / length(raydir)
+        raydir = mul(raydir, scale) # normalize
+        raypos = tr.inv_transform_point(raypos)
+        eps = 1e-7
+
+        px, py, pz = raypos
+        dx, dy, dz = raydir
+        tsc = self._solveCone(px, py, pz, dx, dy, dz)
+        if not tsc:
+            return []
+        tcmin, tcmax = tsc
+        ts = []
+        cminy = py + tcmin[0] * dy
+        cmaxy = py + tcmax[0] * dy
+        if 0.0 <= cminy <= 1.0:
+            ts.append(tcmin)
+        if 0.0 <= cmaxy <= 1.0:
+            ts.append(tcmax)
+        if len(ts) == 0:
+            return []
+        if len(ts) == 2:
+            tr = []
+            if ts[0][0] > 0.0:
+                tr.append(Intersection(scale, ts[0][0], raypos, raydir, self, Intersection.ENTRY, ts[0][1]))
+            if ts[1][0] > 0.0:
+                tr.append(Intersection(scale, ts[1][0], raypos, raydir, self, Intersection.EXIT, ts[1][1]))
+            return tr
+        # check plane
+        # since we know there is only one intersection with the cone,
+        # there must be an intersection in the base
+        tp = (-py + 1.0) / dy
+        ts.append((tp, 1))
+        ts.sort()
+        tr = []
+        if ts[0][0] > 0.0:
+            tr.append(Intersection(scale, ts[0][0], raypos, raydir, self, Intersection.ENTRY, ts[0][1]))
+        if ts[1][0] > 0.0:
+            tr.append(Intersection(scale, ts[1][0], raypos, raydir, self, Intersection.EXIT, ts[1][1]))
+        return tr
+       
+    def get_surface(self, i):
+        x, y, z = i.opos
+        face = i.face
+        if face == 0:
+            return self.surface(0, math.asin(x / y) / (2.0 * math.pi), y)
+        elif face == 1:
+            return self.surface(1, (x + 1.0) / 2.0, (y + 1.0) / 2.0)
+
+    def get_normal(self, i):
+        if i.face == 0:
+            x, y, z = i.opos
+            n = (x, -y, z)
+        elif i.face == 1:
+            n = (0.0, 1.0, 0.0)
+        return normalize(self.transform.transform_normal(n))
+    
 
 class Plane(Primitive):
     def intersect(self, raypos, raydir):
@@ -375,10 +482,16 @@ class Plane(Primitive):
         p = add(raypos, mul(raydir, t))
         n = normalize(tr.transform_normal(np))
         tp = tr.transform_point(p)
-        ts = scale * t
-        return [Intersection(ts, tp, p, n, self, Intersection.ENTRY, 0),
-                Intersection(ts, tp, p, neg(n), self, Intersection.EXIT, 0)]
+        return [Intersection(scale, t, raypos, raydir, self, Intersection.ENTRY, 0),
+                Intersection(scale, t, raypos, raydir, self, Intersection.EXIT, 1)]
         
     def get_surface(self, i):
         x, y, z = i.opos
         return self.surface(0, x, z)
+
+    def get_normal(self, i):
+        n = normalize(self.transform.transform_normal((0.0, 1.0, 0.0)))
+        if i.face == 0:
+            return n
+        else:
+            return neg(n)

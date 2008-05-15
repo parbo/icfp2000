@@ -3,7 +3,7 @@ from vecmat import normalize, add, sub, cmul, neg, mul, dot, length, cross
 from transform import Transform
 from ppmwriter import write_ppm
 import evaluator
-from primitives import Sphere, Plane, Cube, Cylinder, Union, Intersect, Difference
+from primitives import Sphere, Plane, Cube, Cylinder, Cone, Union, Intersect, Difference
 from lights import Light, PointLight, SpotLight
 
 def get_ambient(c, ia, kd):
@@ -32,6 +32,7 @@ def trace(amb, lights, scene, depth, raypos, raydir):
             if df > 0.0:
                 poseps = add(pos, mul(lightdir, 1e-7))
                 i = scene.intersect(poseps, lightdir)
+                #for ic in i: print ic
                 if not i or (lightdistance and (lightdistance < i[0].distance)):
                     ic = cmul(sc, light.get_intensity(pos))
                     if kd > 0.0:
@@ -77,157 +78,166 @@ if __name__=="__main__":
             print "psyco not installed"
             pass
 
-    def blue(face, u, v):
-        return (0.1, 0.1, 1.0), 0.3, 0.2, 6
+    def scene_sphere():
+        def blue(face, u, v):
+            return (0.1, 0.1, 1.0), 0.3, 0.2, 6
+        l = [Light((1.0, -1.0, 1.0), (1.0, 1.0, 1.0))]
+        s = Sphere(blue)
+        return s, l
+
+    def scene_plane():
+        def yellow(face, u, v):
+            return (0.1, 1.0, 1.0), 0.3, 0.2, 6
+        l = [Light((1.0, -1.0, 1.0), (1.0, 1.0, 1.0))]
+        p = Plane(yellow)
+        p.translate(0.0, -4.0, 0.0)
+        return p, l
+
+    def scene_cube():
+        def red(face, u, v):
+            return (1.0, 0.1, 0.1), 0.3, 0.2, 6
+        l = [Light((1.0, -1.0, 1.0), (1.0, 1.0, 1.0))]
+        c = Cube(red)
+        c.translate(-0.5, -0.5, -0.5)
+        c.rotatex(10.0)
+        c.rotatey(20.0)
+        c.rotatez(30.0)
+        return c, l
+
+    def scene_cylinder():
+        def green(face, u, v):
+            return (0.1, 1.0, 0.1), 0.3, 0.2, 6
+        l = [Light((1.0, -1.0, 1.0), (1.0, 1.0, 1.0))]
+        c = Cylinder(green)
+        c.translate(0.0, -0.5, 0.0)
+        c.rotatex(60.0)
+        c.rotatey(20.0)
+        c.rotatez(40.0)
+        return c, l
+
+    def scene_cone():
+        def green(face, u, v):
+            return (0.1, 1.0, 0.1), 0.3, 0.2, 6
+        l = [Light((1.0, -1.0, 1.0), (1.0, 1.0, 1.0))]
+        c = Cone(green)
+        c.translate(0.0, -0.5, 0.0)
+        c.scale(2.0, 4.0, 2.0)
+        #c.rotatex(90.0)
+        return c, l
+
+    def scene_texsphere():
+        def pattern(face, u, v):
+            up = int(u * 12) % 2
+            vp = int(v * 12) % 2
+            r, g, b = 0.0, 0.1, 0.0
+            if up == 0:
+                r = u
+            if vp == 0:
+                b = v
+            print r, g, b
+            return (r, g, b), 0.3, 0.2, 6
+        l = [Light((1.0, -1.0, 1.0), (1.0, 1.0, 1.0))]
+        s = Sphere(pattern)
+        return s, l
+                
+
+    def scene_union():
+        def blue(face, u, v):
+            return (0.1, 0.1, 1.0), 0.3, 0.2, 6
+        def red(face, u, v):
+            return (1.0, 0.1, 0.1), 0.3, 0.2, 6
+        l = [Light((1.0, -1.0, 1.0), (1.0, 1.0, 1.0))]
+        s1 = Sphere(blue)
+        s1.translate(-0.6, 0.0, 0.0)
+        s2 = Sphere(red)
+        s2.translate(0.6, 0.0, 0.0)
+        u = Union(s1, s2)
+        return u, l
+
+    def scene_intersect():
+        def blue(face, u, v):
+            return (0.1, 0.1, 1.0), 0.3, 0.2, 6
+        def red(face, u, v):
+            return (1.0, 0.1, 0.1), 0.3, 0.2, 6
+        l = [Light((1.0, -1.0, 1.0), (1.0, 1.0, 1.0))]
+        s1 = Sphere(blue)
+        s1.translate(-0.6, 0.0, 0.0)
+        s2 = Sphere(red)
+        s2.translate(0.6, 0.0, 0.0)
+        i = Intersect(s1, s2)
+        return i, l
+
+    def scene_difference():
+        def blue(face, u, v):
+            return (0.1, 0.1, 1.0), 0.3, 0.2, 6
+        def red(face, u, v):
+            return (1.0, 0.1, 0.1), 0.3, 0.2, 6
+        l = [Light((1.0, -1.0, 1.0), (1.0, 1.0, 1.0))]
+        c1 = Cylinder(blue)
+        c1.translate(0.0, -0.5, 0.0)
+        c2 = Cylinder(red)
+        c2.translate(0.0, -0.5, 0.0)
+        c2.scale(0.8, 1.2, 0.8)
+        d = Difference(c1, c2)
+        d.rotatex(60.0)
+        d.rotatey(20.0)
+        d.rotatez(40.0)
+        return d, l
+
+    def scene_difference2():
+        def blue(face, u, v):
+            return (0.1, 0.1, 1.0), 0.3, 0.2, 6
+        def red(face, u, v):
+            return (1.0, 0.1, 0.1), 0.3, 0.2, 6
+        l = [Light((1.0, -1.0, 1.0), (1.0, 1.0, 1.0))]
+        c1 = Sphere(blue)
+        c2 = Cylinder(red)
+        c2.translate(0.0, -0.5, 0.0)
+        c2.scale(0.4, 2.0, 0.4)
+        d = Difference(c1, c2)
+        d.rotatex(85.0)
+        d.rotatey(20.0)
+        d.rotatez(40.0)
+        return d, l
+
+    def scene_difference3():
+        def blue(face, u, v):
+            return (0.1, 0.1, 1.0), 0.3, 0.2, 6
+        def red(face, u, v):
+            return (1.0, 0.1, 0.1), 0.3, 0.2, 6
+        l = [Light((1.0, -1.0, 1.0), (1.0, 1.0, 1.0))]
+        c1 = Cone(blue)
+        c1.translate(0.0, -0.5, 0.0)
+        c1.scale(1.0, 3.0, 1.0)
+        c2 = Cube(red)
+        c2.translate(-0.5, 1.0, -0.5)
+        c3 = Cube(red)
+        c3.translate(-0.5, -1.5, -0.5)
+        u = Union(c2, c3)
+        d = Difference(c1, u)
+        d.rotatex(85.0)
+        d.rotatey(20.0)
+        d.rotatez(40.0)
+        return d, l
     
-    def amb(face, u, v):
-        return (1.0, 1.0, 1.0), 1.0, 0.0, 0
-    
-    def mirror(face, u, v):
-        return (1.0, 1.0, 1.0), 0.1, 1.0, 128
-    
-    def redfcn(face, u, v):
-        return (1.0, 0.1, 0.1), 0.3, 0.2, 6
-    
-    def green(face, u, v):
-        return (0.1, 1.0, 0.1), 0.3, 0.2, 6
+    def render_scene(scene, lights, name):
+        scene.translate(0.0, 0.0, 3.0)
+        render((1.0, 1.0, 1.0),
+               lights,
+               scene,
+               3,
+               90,
+               256,
+               256,
+               name)
 
-    def cface(face, u, v):
-        if face == 0:
-            return (1.0, 0.0, 0.0), 0.3, 0.2, 6
-        elif face == 1:
-            return (0.0, 1.0, 0.0), 0.3, 0.2, 6
-        elif face == 2:
-            return (0.0, 0.0, 1.0), 0.3, 0.2, 6
-        elif face == 3:
-            return (1.0, 1.0, 0.0), 0.3, 0.2, 6
-        elif face == 4:
-            return (1.0, 0.0, 1.0), 0.3, 0.2, 6
-        elif face == 5:
-            return (0.0, 1.0, 1.0), 0.3, 0.2, 6
-
-    def wavy(face, u, v):
-        return (0.1, v * math.cos(math.pi * 10 * u), math.sin(math.pi * 10 * v)), 0.3, 0.05, 4
-    
-    obj1 = Sphere(blue)
-    obj1.translate(0.5, 0.0, 0.0)
-    obj2 = Sphere(wavy)
-    obj2.translate(-0.5, 0.0, 0.0)
-    obj3 = Union(obj1, obj2)
-    obj3.translate(-1.2, -1.0, 5.0)
-    obj4 = Sphere(green)
-    obj4.translate(0.5, 0.0, 0.0)
-    obj5 = Sphere(blue)
-    obj5.translate(-0.5, 0.0, 0.0)
-    obj6 = Intersect(obj4, obj5)
-    obj6.translate(1.2, -1.0, 5.0)
-    obj7 = Union(obj3, obj6)
-    obj8 = Sphere(redfcn)
-    obj8.translate(0.5, 0.0, 0.0)
-    obj9 = Sphere(blue)
-    obj9.translate(-0.5, 0.0, 0.0)
-    obj10 = Difference(obj8, obj9)
-    obj10.rotatey(-25)
-    obj10.translate(0.0, 1.0, 5.0)
-    scene1 = Union(obj7, obj10)
-
-    lights1 = [Light((0.0, -1.0, 0.0), (0.5, 1.0, 0.5)),
-               PointLight((0.0, 0.0, -5.0), (0.5, 0.5, 0.5)),
-               SpotLight((0.0, 0.0, -5.0), (0.0, 0.0, 5.0), (1.0, 1.0, 1.0), 45, 4),
-               PointLight((5.0, 5.0, -5.0), (0.2, 1.0, 0.2))]
-
-    a = Sphere(mirror)
-    a.uscale(4.0)        
-    a.translate(0.5, 0.0, 3.0)        
-    b = Sphere(redfcn)
-    b.translate(-1.2, 1.0, -3.0)
-    scene2 = Union(a, b)
-    scene2.rotatey(20)
-    scene2.translate(0.0, 0.0, 10.0)
-    lights2 = [Light((0.0, -1.0, 0.0), (1.0, 1.0, 1.0)),
-               PointLight((0.0, 0.0, -1.0), (1.0, 1.0, 1.0))
-               ]
-
-    p = Plane(redfcn)
-    p.translate(0.0, -2.0, 0.0)
-#    p.rotatez(-30)
-
-    c = Cube(cface)
-    c.translate(-0.5, -0.5, -0.5)
-    c.uscale(2.0)
-    c.rotatex(60)
-    c.rotatey(-30)
-    c.rotatez(45)
-    c.translate(0.0, 0.0, 10.0)
-    d = Sphere(redfcn)
-    d.translate(-1.2, -1.3, 10.0)
-
-    f = Union(c, d)
-    s = Union(p, f)
-
-    l = [Light((1.0, -1.0, 1.0), (1.0, 1.0, 1.0))]
-    l2 = [PointLight((-3.0, -1.0, -5.0), (1.0, 1.0, 1.0))]
-
-    black = (0.0,  0.0,  0.0)
-    white = (1.0,  1.0,  1.0)
-    red = (1.0,  0.0,  0.0)
-    green = (0.0,  1.0,  0.0)
-    blue = (0.0,  0.0,  1.0)
-    magenta = (1.0,  0.0,  1.0)
-    yellow = (1.0,  1.0,  0.0)
-    cyan = (0.0,  1.0,  1.0)
-
-    texture = ((blue,  white, blue),
-               (white, blue,  white),
-               (blue,  white, blue))
-
-    def cubefcn(face, u, v):
-        #print face, u, v
-        def toIntCoord(f):
-            i = int(math.floor(f * 3.0))
-            if i == 3:
-                return 2
-            else:
-                return i
-        color = texture[toIntCoord(u)][toIntCoord(v)]
-        kd = 0.3
-        ks = 0.4
-        n = 8.0
-        return color, kd, ks, n
-
-    ss = Sphere(redfcn)
-    ss.uscale(1.1)
-    
-    cc = Cube(cubefcn)
-    cc.translate(-0.5, -0.5, -0.5) 
-    cc.uscale(1.5)
-    cc.rotatex(-25.0)
-    cc.rotatey(25.0)
-    cc.rotatez(180)
-
-    sc = Intersect(ss, cc)
-    sc.translate(0.0, 0.0, 3.0)
-
-    c1 = Sphere(redfcn)
-#    c1.translate(0.0, -0.5, 0.0)
-    c2 = Cylinder(redfcn)
-    c2.translate(0.0, -0.5, 0.0)
-    c2.scale(0.5, 2.0, 0.5)
-    cyl = Difference(c1, c2)
-    cyl.scale(2.0, 2.0, 2.0)
-    cyl.rotatex(80.0)
-#    cyl.rotatey(20)
-    cyl.translate(0.0, 0.0, 5.0)
-
-    c3 = Sphere(redfcn)
-    c3.translate(-2.0, 2.0, 3)
-    sc5 = Union(cyl, c3)
-
-    render((1.0, 1.0, 1.0),
-           l,
-           sc5,
-           0,
-           90,
-           256,
-           256,
-           "render.ppm")
+    if len(sys.argv) > 2:
+        s = "scene_"+sys.argv[2]
+        v = locals()[s]
+        scene, lights = v()
+        render_scene(scene, lights, s + ".ppm")
+    else:
+        for k, v in locals().items():
+            if k.startswith("scene_"):
+                scene, lights = v()
+                render_scene(scene, lights, k + ".ppm")
