@@ -524,6 +524,7 @@ if __name__=="__main__":
         try:
             import psyco
             psyco.full()
+            psyco.cannotcompile(do_evaluate)
             print "Using psyco"
         except ImportError:
             print "psyco not installed"
