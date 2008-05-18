@@ -511,6 +511,8 @@ if __name__=="__main__":
     from parser import parse, GMLSyntaxError
     import sys
 
+    sys.setrecursionlimit(120000)
+
     psyco = (sys.argv[1] == "-p")
     if psyco:
         files = sys.argv[2:]
@@ -568,5 +570,33 @@ if __name__=="__main__":
     print stack
     env, stack, ast = run("{ /self /n n 2 lessi { 1 } { n 1 subi self self apply n muli } if } /fact 12 fact fact apply")
     print stack
-
+    for u in range(10):
+        for v in range(10):
+            prog = """1 /col1 2 /col2 %f /u %f /v { /y /x x x mulf y y mulf addf sqrt } /dist
+            { 
+            u 0.5 subf /u v 0.5 subf /v
+            u u v dist apply divf /b
+            0.0 v lessf { b asin } { 360.0 b asin subf } if 180.0 addf 30.0 divf
+            floor 2 modi 1 eqi { col1 } { col2 } if
+            } apply"""%(u / 10.0, v / 10.0)
+            def test(u, v):
+                u = u - 0.5
+                v = v - 0.5
+                b = u / (math.sqrt(u*u+v*v))
+                if 0.0 < v:
+                    c = math.degrees(math.asin(b))
+                else:
+                    c = 360 - math.degrees(math.asin(b))
+                c = c + 180.8
+                c = c / 30.0
+                c = math.floor(c)
+                c = modi(c, 2)
+                if c == 1:
+                    print 1,
+                else:
+                    print 2,
+            #test(u / 10.0, v / 10.0)
+            env, stack, ast = run(prog)
+            print stack,
+        print
     

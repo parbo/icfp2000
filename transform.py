@@ -1,5 +1,5 @@
 import math
-from vecmat import mcmp, mmmul, mvmul, transpose, identity
+from vecmat import mcmp, mmmul, mvmul, mvmul3, mvmulx, mvmuly, mvmulz, transpose, identity
 
 class Transform(object):
     def __init__(self):
@@ -22,12 +22,36 @@ class Transform(object):
     def transform_normal(self, v):
         return transform_vector(transpose(self.inv_m), v)
     
+    def transform_px(self, v):
+        x, y, z = v
+        return mvmulx(self.m, (x, y, z, 1.0))
+    
+    def transform_py(self, v):
+        x, y, z = v
+        return mvmuly(self.m, (x, y, z, 1.0))
+    
+    def transform_pz(self, v):
+        x, y, z = v
+        return mvmulz(self.m, (x, y, z, 1.0))
+    
     def inv_transform_point(self, p):
         return transform_point(self.inv_m, p)
 
     def inv_transform_vector(self, v):
         return transform_vector(self.inv_m, v)
 
+    def inv_transform_px(self, v):
+        x, y, z = v
+        return mvmulx(self.inv_m, (x, y, z, 1.0))
+    
+    def inv_transform_py(self, v):
+        x, y, z = v
+        return mvmuly(self.inv_m, (x, y, z, 1.0))
+    
+    def inv_transform_pz(self, v):
+        x, y, z = v
+        return mvmulz(self.inv_m, (x, y, z, 1.0))
+    
     def scale(self, sx, sy, sz):
         sc = ((sx, 0.0, 0.0, 0.0),
               (0.0, sy, 0.0, 0.0),
@@ -99,11 +123,11 @@ class Transform(object):
 
 def transform_vector(m, v):
     x, y, z = v
-    return mvmul(m, (x, y, z, 0.0))[:-1]
+    return mvmul3(m, (x, y, z, 0.0))
 
 def transform_point(m, p):
     x, y, z = p
-    return mvmul(m, (x, y, z, 1.0))[:-1]
+    return mvmul3(m, (x, y, z, 1.0))
 
 if __name__=="__main__":
     t = Transform()

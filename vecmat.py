@@ -58,7 +58,8 @@ def dot(v1, v2):
     return x1 * x2 + y1 * y2 + z1 * z2
 
 def length(v):
-    return math.sqrt(dot(v, v))
+    x, y, z = v
+    return math.sqrt(x * x + y * y + z * z)
 
 def cross(v1, v2):
     x1, y1, z1 = v1
@@ -78,6 +79,31 @@ def mvmul(m, v):
             m21 * v1 + m22 * v2 + m23 * v3 + m24 * v4,
             m31 * v1 + m32 * v2 + m33 * v3 + m34 * v4,
             m41 * v1 + m42 * v2 + m43 * v3 + m44 * v4)
+
+def mvmul3(m, v):
+    m1, m2, m3, m4 = m
+    m11, m12, m13, m14 = m1
+    m21, m22, m23, m24 = m2
+    m31, m32, m33, m34 = m3
+    v1, v2, v3, v4 = v
+    return (m11 * v1 + m12 * v2 + m13 * v3 + m14 * v4,
+            m21 * v1 + m22 * v2 + m23 * v3 + m24 * v4,
+            m31 * v1 + m32 * v2 + m33 * v3 + m34 * v4)
+    
+def mvmulx(m, v):
+    m11, m12, m13, m14 = m[0]
+    v1, v2, v3, v4 = v
+    return m11 * v1 + m12 * v2 + m13 * v3 + m14 * v4
+
+def mvmuly(m, v):
+    m21, m22, m23, m24 = m[1]
+    v1, v2, v3, v4 = v
+    return m21 * v1 + m22 * v2 + m23 * v3 + m24 * v4
+
+def mvmulz(m, v):
+    m31, m32, m33, m34 = m[0]
+    v1, v2, v3, v4 = v
+    return m31 * v1 + m32 * v2 + m33 * v3 + m34 * v4
     
 def mmmul(ma, mb):
     ma1, ma2, ma3, ma4 = ma
