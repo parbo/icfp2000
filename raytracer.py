@@ -163,7 +163,6 @@ if __name__=="__main__":
 
     def scene_texcylinder2():
         def test(face, u, v):
-            print face, u, v
             if face == 0:
                 return (0.1, 1.0, 0.1), 0.3, 0.2, 6
             u = u - 0.5
@@ -341,15 +340,6 @@ if __name__=="__main__":
         p5.translate(0.0, 0.0, 1.0)
         obj = Intersect(Intersect(Intersect(p1, p2), Intersect(p3, p4)), p5)
         obj.translate(0.0, 3.0, 0.0)
-        print "p1", p1.inside((0.0, 0.0, -1.0))
-        print "p2", p2.inside((0.0, 0.0, -1.0))
-        print "p3", p3.inside((0.0, 0.0, -1.0))
-        print "p4", p4.inside((0.0, 0.0, -1.0))
-        print "p5", p5.inside((0.0, 0.0, -1.0))
-        print "p1&p2", Intersect(p1, p2).inside((0.0, 0.0, -1.0))
-        print "p3&p4", Intersect(p3, p4).inside((0.0, 0.0, -1.0))
-        print "(p1&p2)&(p3&p4)", Intersect(Intersect(p1, p2), Intersect(p3, p4)).inside((0.0, 0.0, -1.0))
-        print "((p1&p2)&(p3&p4))&p5", obj.inside((0.0, 0.0, -1.0))
         obj.rotatex(50)
         obj.rotatey(20)
         obj.rotatez(30)
